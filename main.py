@@ -81,13 +81,57 @@ def add_to_open(open_list, neighbor):
             return False
     return True  # 如果不存在，则返回 True 以便添加该节点到开放列表
 
+def visualize_q_table(maze, Q, start, end):
+    """可视化Q表中每个状态的最大Q值对应动作方向"""
+    plt.figure(figsize=(16, 16))
+    plt.imshow(maze, cmap='hot', interpolation='nearest')
+    
+    # 增强箭头可视化参数
+    arrow_style = {
+        0: {'dx':0, 'dy':-0.45, 'color':'#FFFF00', 'width':0.05, 'head_width':0.3, 'label':'Up'},     # 亮黄色-上
+        1: {'dx':0, 'dy':0.45, 'color':'#00FF00', 'width':0.05, 'head_width':0.3, 'label':'Down'},    # 亮绿色-下
+        2: {'dx':-0.45, 'dy':0, 'color':'#00FFFF', 'width':0.05, 'head_width':0.3, 'label':'Left'},   # 亮青色-左
+        3: {'dx':0.45, 'dy':0, 'color':'#FF00FF', 'width':0.05, 'head_width':0.3, 'label':'Right'}    # 亮品红-右
+    }
+
+    # 遍历迷宫中的每个格子
+    for y in range(maze.shape[0]):
+        for x in range(maze.shape[1]):
+            if maze[y, x] == 1:  # 跳过障碍物
+                continue
+            if (y, x) == start or (y, x) == end:  # 跳过起点终点
+                continue
+                
+            state = (y, x)
+            if state in Q:
+                # 获取最大Q值对应的动作
+                action = np.argmax(Q[state])
+                # 绘制箭头
+                params = arrow_style[action]
+                plt.arrow(x, y, params['dx'], params['dy'], 
+                          color=params['color'], width=params['width'],
+                          head_width=params['head_width'], length_includes_head=True)
+
+    # 绘制起点和终点
+    plt.scatter(start[1], start[0], color='green', s=200, label='Start', zorder=5)
+    plt.scatter(end[1], end[0], color='red', s=200, label='End', zorder=5)
+    
+    plt.title('Q-table Policy Visualization', fontsize=16)
+    plt.legend()
+    plt.show()
+
 def visualize_path(maze, astar_path, ql_path, start, end):
     """将两种算法的路径可视化在迷宫上。"""
     maze_copy = np.array(maze)
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(16, 16))
+    
+    # 使用更清晰的配色方案
+    cmap = plt.cm.get_cmap('viridis').copy()
+    cmap.set_under('white')  # 可通行区域
+    cmap.set_over('black')   # 障碍物
     
     # 绘制迷宫
-    plt.imshow(maze_copy, cmap='hot', interpolation='nearest')
+    plt.imshow(maze_copy, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
     
     # 绘制A*路径
     if astar_path:
@@ -109,7 +153,19 @@ def visualize_path(maze, astar_path, ql_path, start, end):
     
     # 添加图例和标题
     plt.legend(fontsize=12)
-    plt.title('Path Planning Comparison', fontsize=16)
+    plt.title('路径规划算法对比 (A* vs Q-learning)', fontsize=18)
+    plt.xlabel('X 坐标', fontsize=14)
+    plt.ylabel('Y 坐标', fontsize=14)
+    
+    # 添加性能对比标注
+    text_str = f"""A* 路径长度: {len(astar_path) if astar_path else 0}
+Q-learning 路径长度: {len(ql_path) if ql_path else 0}
+迷宫尺寸: {maze_size}x{maze_size}"""
+    plt.text(0.5, -0.1, text_str, transform=plt.gca().transAxes,
+             fontsize=12, verticalalignment='top', horizontalalignment='center',
+             bbox=dict(facecolor='white', alpha=0.8))
+    
+    plt.tight_layout()
     plt.show()
 
 # 设定迷宫的尺寸
@@ -120,12 +176,12 @@ maze = np.zeros((maze_size, maze_size))
 
 # 定义几个障碍物区块，每个障碍物区块是一个矩形
 obstacle_blocks = [
-    # (10, 10, 20, 20),  # (y起始, x起始, 高度, 宽度)
-    # (30, 40, 20, 30),
-    # (60, 20, 15, 10),
-    # (80, 50, 10, 45),
-    # (60, 60, 10, 10),
-    # (50, 10, 3, 85),
+    (10, 10, 20, 20),  # (y起始, x起始, 高度, 宽度)
+    (30, 40, 20, 30),
+    (60, 20, 15, 10),
+    (80, 50, 10, 45),
+    (60, 60, 10, 10),
+    (50, 10, 3, 85),
 ]
 
 # 在迷宫中设置障碍物
@@ -134,7 +190,7 @@ for y_start, x_start, height, width in obstacle_blocks:
 
 # 设定起始点和终点
 start = (0, 0)
-end = (92, 93)
+end = (90, 90)
 
 # 确保起始点和终点不是障碍物
 maze[start] = 0
@@ -144,13 +200,14 @@ maze[end] = 0
 print("迷宫左上角10x10区域的视图:")
 print(maze[:10, :10])
 
-# Q-learning参数优化
-alpha = 0.2    # 提高学习率加速收敛
-gamma = 0.9    # 降低折扣因子更关注近期奖励
-epsilon = 1.0   # 初始探索率
-epsilon_decay = 0.995  # 探索率衰减系数
-min_epsilon = 0.01     # 最小探索率
-episodes = 4000        # 增加训练轮数
+# Q-learning参数优化（强化版本）
+alpha = 0.3      # 提高学习率加速收敛
+gamma = 0.95     # 平衡远期奖励
+epsilon = 1.0     # 初始探索率
+epsilon_decay = 0.999  # 更平缓的探索率衰减
+min_epsilon = 0.1    # 保持最小探索率
+episodes = 5000       # 增加训练轮数
+batch_size = 10      # 每10轮显示一次进度
 
 # 初始化Q表
 Q = {}
@@ -199,22 +256,22 @@ def update_q_value(state, action, reward, next_state):
         reward + gamma * np.max(Q[next_state_key])
     )
 
-def get_reward(next_pos, end):
+def get_reward(current_pos, next_pos, end):
     """改进的奖励函数"""
     # 到达终点的奖励
     if next_pos == end:
-        return 500
+        return 50000
     
     # 碰撞障碍物惩罚
     if maze[next_pos] == 1:
         return -200
     
-    # 计算曼哈顿距离进步
-    current_dist = abs(next_pos[0]-end[0]) + abs(next_pos[1]-end[1])
-    last_dist = abs(next_pos[0]-end[0]) + abs(next_pos[1]-end[1]) + 1  # 假设上一步更远
+    # 计算几何距离进步（欧几里得距离平方）
+    current_dist = (next_pos[0]-end[0])**2 + (next_pos[1]-end[1])**2
+    last_dist = (current_pos[0]-end[0])**2 + (current_pos[1]-end[1])**2  # 使用实际的上一步距离
     
-    # 基础步长惩罚 + 距离进步奖励
-    distance_reward = (last_dist - current_dist) * 5  # 每接近一步奖励5
+    # 基础步长惩罚 + 真实距离变化奖励
+    distance_reward = (last_dist - current_dist) * 0.1  # 实际距离变化的奖励
     return -1 + distance_reward
 
 def q_learning_train(maze, start, end):
@@ -226,7 +283,7 @@ def q_learning_train(maze, start, end):
         state = start
         total_reward = 0
         steps = 0
-        max_steps = 1000
+        max_steps = 2000
         
         while state != end and steps < max_steps:
             action = choose_action(state)
@@ -250,7 +307,7 @@ def q_learning_train(maze, start, end):
                 next_state = state  # 保持原位
                 reward = -10        # 越界惩罚
             else:
-                reward = get_reward(next_state, end)
+                reward = get_reward(state, next_state, end)
             
             # 更新Q值
             update_q_value(state, action, reward, next_state)
@@ -262,29 +319,46 @@ def q_learning_train(maze, start, end):
             if maze[state] == 1:  # 如果进入障碍物，重置位置
                 state = start
                 
-        if (episode+1) % 50 == 0:
+        if (episode+1) % batch_size == 0:
             print(f"Episode: {episode+1}, Total Reward: {total_reward:.2f}")
 
 def extract_ql_path(start, end):
-    """改进的路径提取函数"""
+    """改进的路径提取函数（增强版）"""
     state = start
     path = [state]
-    visited = set()
-    max_steps = 500  # 最大步数限制
+    visited = {}
+    max_steps = 1000  # 增大步数限制
     step = 0
+    last_good_position = start  # 记录最后有效位置
     
     while state != end and step < max_steps:
         state_key = get_state(state)
-        if state_key not in Q:
-            # 尝试随机移动避免卡死
-            action = np.random.choice(actions)
-        else:
-            # 添加10%随机性避免局部最优
-            if np.random.rand() < 0.1:
-                action = np.random.choice(actions)
-            else:
-                action = np.argmax(Q[state_key])
         
+        # 动态调整探索率（随步数增加逐渐降低）
+        current_epsilon = max(0.01, epsilon * (1 - step/max_steps))
+        
+        if state_key not in Q or np.random.rand() < current_epsilon:
+            # 优先选择朝向目标的方向
+            dx = end[0] - state[0]
+            dy = end[1] - state[1]
+            preferred_actions = []
+            if dx > 0: preferred_actions.append(1)  # 下
+            elif dx < 0: preferred_actions.append(0)  # 上
+            if dy > 0: preferred_actions.append(3)  # 右
+            elif dy < 0: preferred_actions.append(2)  # 左
+            
+            if preferred_actions:
+                action = np.random.choice(preferred_actions)
+            else:
+                action = np.random.choice(actions)
+        else:
+            # 添加基于Q值的概率选择（softmax策略）
+            q_values = Q[state_key]
+            exp_q = np.exp(q_values - np.max(q_values))
+            probabilities = exp_q / exp_q.sum()
+            action = np.random.choice(actions, p=probabilities)
+        
+        # 执行动作
         next_state = list(state)
         if action == 0:   # 上
             next_state[0] -= 1
@@ -297,28 +371,40 @@ def extract_ql_path(start, end):
             
         next_state = tuple(next_state)
         
-        # 边界和障碍检查
+        # 边界和障碍检查（增强版）
         if (next_state[0] < 0 or next_state[0] >= maze.shape[0] or 
             next_state[1] < 0 or next_state[1] >= maze.shape[1] or 
             maze[next_state] == 1):
-            # 遇到无效位置时尝试随机方向
-            next_state = state
-            action = np.random.choice(actions)
+            # 遇到无效位置时进行惩罚并尝试新方向
+            if np.random.rand() < 0.5:
+                next_state = last_good_position  # 回到最后有效位置
+            else:
+                next_state = state
             continue
-            
-        # 检查循环，如果重复访问则回溯两步
-        if next_state in visited:
-            if len(path) >= 2:
-                path.pop()
-                state = path[-1]
-            continue
-        visited.add(next_state)
         
+        # 更新最后有效位置
+        last_good_position = state
+        
+        # 改进循环检测机制
+        if next_state in visited:
+            # 如果循环超过3次，回溯到循环起点
+            if visited[next_state] > 3 and len(path) > 10:
+                path = path[:-5]  # 回溯5步
+                state = path[-1]
+                continue
+            visited[next_state] += 1
+        else:
+            visited[next_state] = 1
+            
         path.append(next_state)
         state = next_state
         step += 1
         
-    return path if state == end else path  # 返回已找到的最佳路径
+        # 动态调整：每100步重置部分visited记录
+        if step % 100 == 0:
+            visited = {k: v for k, v in visited.items() if v > 2}
+            
+    return path
 
 # 运行A*算法
 astar_path = astar(maze, start, end)
@@ -327,10 +413,14 @@ astar_path = astar(maze, start, end)
 print("\n开始Q-learning训练...")
 q_learning_train(maze, start, end)
 
+# 可视化Q表策略
+print("\n正在可视化Q-learning策略...")
+visualize_q_table(maze, Q, start, end)
+
 # 提取Q-learning路径
 ql_path = extract_ql_path(start, end)
 
-# 可视化结果
+# 可视化对比结果
 print("\nA*路径长度:", len(astar_path) if astar_path else 0)
 print("Q-learning路径长度:", len(ql_path) if ql_path else 0)
 visualize_path(maze, astar_path, ql_path, start, end)
