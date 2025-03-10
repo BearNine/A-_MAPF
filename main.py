@@ -120,12 +120,12 @@ maze = np.zeros((maze_size, maze_size))
 
 # 定义几个障碍物区块，每个障碍物区块是一个矩形
 obstacle_blocks = [
-    (10, 10, 20, 20),  # (y起始, x起始, 高度, 宽度)
-    (30, 40, 20, 30),
-    (60, 20, 15, 10),
-    (80, 50, 10, 45),
-    (60, 60, 10, 10),
-    (50, 10, 3, 85),
+    # (10, 10, 20, 20),  # (y起始, x起始, 高度, 宽度)
+    # (30, 40, 20, 30),
+    # (60, 20, 15, 10),
+    # (80, 50, 10, 45),
+    # (60, 60, 10, 10),
+    # (50, 10, 3, 85),
 ]
 
 # 在迷宫中设置障碍物
@@ -150,7 +150,7 @@ gamma = 0.9    # 降低折扣因子更关注近期奖励
 epsilon = 1.0   # 初始探索率
 epsilon_decay = 0.995  # 探索率衰减系数
 min_epsilon = 0.01     # 最小探索率
-episodes = 2000        # 增加训练轮数
+episodes = 4000        # 增加训练轮数
 
 # 初始化Q表
 Q = {}
@@ -325,12 +325,12 @@ astar_path = astar(maze, start, end)
 
 # 训练Q-learning算法
 print("\n开始Q-learning训练...")
-# q_learning_train(maze, start, end)
+q_learning_train(maze, start, end)
 
 # 提取Q-learning路径
-# ql_path = extract_ql_path(start, end)
+ql_path = extract_ql_path(start, end)
 
 # 可视化结果
 print("\nA*路径长度:", len(astar_path) if astar_path else 0)
-# print("Q-learning路径长度:", len(ql_path) if ql_path else 0)
-# visualize_path(maze, astar_path, ql_path, start, end)
+print("Q-learning路径长度:", len(ql_path) if ql_path else 0)
+visualize_path(maze, astar_path, ql_path, start, end)
