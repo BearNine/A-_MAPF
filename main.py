@@ -182,6 +182,7 @@ obstacle_blocks = [
     (80, 50, 10, 45),
     (60, 60, 10, 10),
     (50, 10, 3, 85),
+    (80, 60, 3, 40),
 ]
 
 # 在迷宫中设置障碍物
@@ -355,7 +356,7 @@ def extract_ql_path(start, end):
             # 添加基于Q值的概率选择（softmax策略）
             q_values = Q[state_key]
             exp_q = np.exp(q_values - np.max(q_values))
-            probabilities = exp_q / exp_q.sum()
+            probabilities = exp_q / (exp_q.sum() + 1e-10)  # 添加极小值防止除零
             action = np.random.choice(actions, p=probabilities)
         
         # 执行动作
