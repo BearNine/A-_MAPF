@@ -213,9 +213,9 @@ print(maze[:10, :10])
 alpha = 0.3      # 提高学习率加速收敛
 gamma = 0.95     # 平衡远期奖励
 epsilon = 1.0     # 初始探索率
-epsilon_decay = 0.999  # 更平缓的探索率衰减
+epsilon_decay = 0.998  # 更平缓的探索率衰减
 min_epsilon = 0.1    # 保持最小探索率
-episodes = 5000       # 增加训练轮数
+episodes = 3000       # 增加训练轮数
 batch_size = 50      # 每10轮显示一次进度
 
 # 初始化Q表
