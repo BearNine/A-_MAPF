@@ -31,8 +31,16 @@ def astar(maze, start, end):
     heapq.heappush(open_list, (start_node.f, start_node))  # 将起始节点添加到开放列表
     print("添加起始节点到开放列表。")
 
-    # 当开放列表非空时，循环执行
+    # 当开放列表非空时，循环执行（增加最大步数限制）
+    max_steps = maze.shape[0] * maze.shape[1] * 10  # 根据迷宫大小动态计算最大步数
+    step_counter = 0
+    
     while open_list:
+        step_counter += 1
+        if step_counter > max_steps:
+            print("警告：超过最大搜索步数，终止搜索！")
+            return None
+            
         current_node = heapq.heappop(open_list)[1]  # 弹出并返回开放列表中 f 值最小的节点
         closed_list.append(current_node)            # 将当前节点添加到封闭列表
         print(f"当前节点: {current_node.position}")
@@ -179,10 +187,10 @@ obstacle_blocks = [
     (10, 10, 20, 20),  # (y起始, x起始, 高度, 宽度)
     (30, 40, 20, 30),
     (60, 20, 15, 10),
-    (80, 50, 10, 45),
+    (80, 50, 5, 45),
     (60, 60, 10, 10),
     (50, 10, 3, 85),
-    (80, 60, 3, 40),
+    (60, 80, 3, 25),
 ]
 
 # 在迷宫中设置障碍物
@@ -220,22 +228,68 @@ def get_state(state):
     """标准化状态表示"""
     return tuple(state)
 
+# 添加在文件开头
+from collections import deque
+
+# 在全局变量区域添加
+visited_states = deque(maxlen=10)  # 记录最近10个状态
+direction_weights = {0:1.0, 1:1.0, 2:1.0, 3:1.0}  # 方向基础权重
+
+def get_next_state(state, action):
+    """计算执行动作后的下一个状态"""
+    y, x = state
+    if action == 0:   # 上
+        y -= 1
+    elif action == 1: # 下
+        y += 1
+    elif action == 2: # 左
+        x -= 1
+    elif action == 3: # 右
+        x += 1
+    return (y, x)
+
+def get_freshness_score(state, action):
+    """计算动作的新鲜度评分，避免重复路径"""
+    next_state = get_next_state(state, action)
+    repeat_penalty = 0.3  # 重复状态的惩罚系数
+    base_score = 1.0
+    
+    # 计算该状态在历史中出现的次数
+    repeat_count = list(visited_states).count(next_state)
+    return base_score * (repeat_penalty ** repeat_count)
+
 def choose_action(state):
-    """改进的ε-greedy策略选择动作"""
-    global epsilon  # 声明全局变量
+    """改进的ε-greedy策略选择动作（带路径防重复）"""
+    global epsilon
     state_key = get_state(state)
+    
+    # 记录当前状态
+    visited_states.append(state)
+    
     if np.random.uniform(0, 1) < epsilon:
-        # 在探索时优先选择朝向目标的方向
         dx = end[0] - state[0]
         dy = end[1] - state[1]
-        preferred_actions = []
-        if dx > 0: preferred_actions.append(1)  # 向下
-        elif dx < 0: preferred_actions.append(0)  # 向上
-        if dy > 0: preferred_actions.append(3)  # 向右
-        elif dy < 0: preferred_actions.append(2)  # 向左
+        action_scores = []
         
-        if preferred_actions:
-            return np.random.choice(preferred_actions)
+        # 计算每个动作的吸引力分数
+        for action in actions:
+            # 基础方向偏好
+            dir_score = 0
+            if (action == 1 and dx > 0) or (action == 0 and dx < 0):
+                dir_score += 1.5
+            if (action == 3 and dy > 0) or (action == 2 and dy < 0):
+                dir_score += 1.5
+                
+            # 路径新鲜度评分
+            freshness = get_freshness_score(state, action)
+            
+            # 综合得分 = 方向偏好 + 新鲜度
+            action_scores.append(dir_score + freshness)
+        
+        # 根据得分概率选择动作
+        scores = np.array(action_scores)
+        prob = scores / scores.sum()
+        return np.random.choice(actions, p=prob)
     else:
         # 获取当前状态的所有Q值
         q_values = Q.get(state_key, np.zeros(len(actions)))
@@ -261,7 +315,7 @@ def get_reward(current_pos, next_pos, end):
     """改进的奖励函数"""
     # 到达终点的奖励
     if next_pos == end:
-        return 50000
+        return 500000
     
     # 碰撞障碍物惩罚
     if maze[next_pos] == 1:
@@ -284,7 +338,7 @@ def q_learning_train(maze, start, end):
         state = start
         total_reward = 0
         steps = 0
-        max_steps = 2000
+        max_steps = 5000
         
         while state != end and steps < max_steps:
             action = choose_action(state)
