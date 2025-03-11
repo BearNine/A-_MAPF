@@ -216,7 +216,7 @@ epsilon = 1.0     # 初始探索率
 epsilon_decay = 0.999  # 更平缓的探索率衰减
 min_epsilon = 0.1    # 保持最小探索率
 episodes = 5000       # 增加训练轮数
-batch_size = 10      # 每10轮显示一次进度
+batch_size = 50      # 每10轮显示一次进度
 
 # 初始化Q表
 Q = {}
@@ -276,15 +276,20 @@ def choose_action(state):
             # 基础方向偏好
             dir_score = 0
             if (action == 1 and dx > 0) or (action == 0 and dx < 0):
-                dir_score += 1.5
+                dir_score += 0.5
             if (action == 3 and dy > 0) or (action == 2 and dy < 0):
-                dir_score += 1.5
+                dir_score += 0.5
                 
             # 路径新鲜度评分
             freshness = get_freshness_score(state, action)
             
-            # 综合得分 = 方向偏好 + 新鲜度
-            action_scores.append(dir_score + freshness)
+            # 新增未探索区域奖励（检查下一个状态是否在Q表中）
+            next_state = get_next_state(state, action)
+            next_state_key = get_state(next_state)
+            exploration_bonus = 3.0 if next_state_key not in Q else 0.0
+            
+            # 综合得分 = 方向偏好 + 新鲜度 + 未探索奖励
+            action_scores.append(dir_score + freshness + exploration_bonus)
         
         # 根据得分概率选择动作
         scores = np.array(action_scores)
@@ -321,9 +326,11 @@ def get_reward(current_pos, next_pos, end):
     if maze[next_pos] == 1:
         return -200
     
+    
     # 计算几何距离进步（欧几里得距离平方）
     current_dist = (next_pos[0]-end[0])**2 + (next_pos[1]-end[1])**2
     last_dist = (current_pos[0]-end[0])**2 + (current_pos[1]-end[1])**2  # 使用实际的上一步距离
+    
     
     # 基础步长惩罚 + 真实距离变化奖励
     distance_reward = (last_dist - current_dist) * 0.1  # 实际距离变化的奖励
